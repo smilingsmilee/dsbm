@@ -1,0 +1,67 @@
+# @package _global_
+#
+# Generic two-folder unpaired image translation.
+#
+# Usage:
+#   python main.py dataset=custom_transfer \
+#       ++paths.init_data_path=/path/to/domain_a \
+#       ++paths.final_data_path=/path/to/domain_b
+#
+# On Kaggle:
+#   python main.py dataset=custom_transfer \
+#       ++paths.init_data_path=/kaggle/input/YOUR_DATASET/domain_a \
+#       ++paths.final_data_path=/kaggle/input/YOUR_DATASET/domain_b \
+#       LOGGER=CSV "hydra.run.dir=/kaggle/working/dsbm_run"
+
+cdsb: False
+
+Dataset: custom
+Dataset_transfer: custom
+
+data:
+  dataset: custom_transfer
+  image_size: 256   # resize all images to this resolution
+  channels: 3
+
+transfer: True
+
+final_adaptive: False
+adaptive_mean: False
+mean_final: torch.zeros([${data.channels}, ${data.image_size}, ${data.image_size}])
+var_final: 1 * torch.ones([${data.channels}, ${data.image_size}, ${data.image_size}])
+
+# Override these two paths on the command line with ++paths.init_data_path=...
+paths:
+  experiments_dir_name: experiments
+  data_dir_name: data
+  init_data_path: ???    # required — folder of domain A images
+  final_data_path: ???   # required — folder of domain B images
+
+# device
+device: cuda
+num_workers: 2
+pin_memory: True
+
+# logging
+log_stride: 100
+gif_stride: 500
+plot_npar: 4
+test_npar: 50
+test_batch_size: 4
+cache_npar: 200
+cache_batch_size: 8
+num_repeat_data: 1
+cache_refresh_stride: 500
+
+# training
+use_prev_net: True
+ema: True
+ema_rate: 0.999
+grad_clipping: True
+grad_clip: 1.0
+batch_size: 4
+num_iter: 5000
+n_ipf: 10
+lr: 0.0001
+
+num_steps: 30
