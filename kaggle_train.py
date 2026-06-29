@@ -20,6 +20,7 @@ subprocess.run([
     "POT",
     "torchdiffeq",
     "accelerate",
+    "torch-fidelity",
 ], check=True)
 print("Dependencies installed.")
 
@@ -92,6 +93,7 @@ cmd = (
     f"++paths.final_data_path={DOMAIN_B} "
     f"'hydra.run.dir={RUN_DIR}'"
 )
+
 print("Running:", cmd)
 os.system(cmd)
 
