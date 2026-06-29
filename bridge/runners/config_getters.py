@@ -11,6 +11,7 @@ from .logger import CSVLogger, WandbLogger, Logger
 from torch.utils.data import DataLoader
 from bridge.data.afhq import AFHQ
 from bridge.data.downscaler import DownscalerDataset
+from bridge.data.image_folder import ImageFolderDataset
 
 cmp = lambda x: transforms.Compose([*x])
 
@@ -22,7 +23,7 @@ def worker_init_fn(worker_id):
 
 def get_plotter(runner, args):
     dataset_tag = getattr(args, DATASET)
-    if dataset_tag in [DATASET_MNIST, DATASET_EMNIST, DATASET_CIFAR10] or dataset_tag.startswith(DATASET_AFHQ):
+    if dataset_tag in [DATASET_MNIST, DATASET_EMNIST, DATASET_CIFAR10, DATASET_CUSTOM] or dataset_tag.startswith(DATASET_AFHQ):
         return ImPlotter(runner, args)
     elif dataset_tag in [DATASET_DOWNSCALER_LOW, DATASET_DOWNSCALER_HIGH]:
         return DownscalerPlotter(runner, args)
@@ -171,6 +172,7 @@ DATASET_CIFAR10 = 'cifar10'
 DATASET_AFHQ = 'afhq'
 DATASET_DOWNSCALER_LOW = 'downscaler_low'
 DATASET_DOWNSCALER_HIGH = 'downscaler_high'
+DATASET_CUSTOM = 'custom'
 
 def get_datasets(args):
     dataset_tag = getattr(args, DATASET)
@@ -207,6 +209,13 @@ def get_datasets(args):
         animal_type = dataset_tag.split('_')[1]
         image_size = args.data.image_size
         init_ds = AFHQ(root_dir=os.path.join(args.paths.afhq_path, 'train'), animal_type=animal_type, image_size=image_size)
+
+    # CUSTOM two-folder dataset
+    if dataset_tag == DATASET_CUSTOM:
+        init_ds = ImageFolderDataset(
+            folder=args.paths.init_data_path,
+            image_size=args.data.image_size,
+        )
 
     # Downscaler dataset
     if dataset_tag == DATASET_DOWNSCALER_HIGH:
@@ -252,6 +261,12 @@ def get_final_dataset(args, init_ds):
             animal_type = dataset_transfer_tag.split('_')[1]
             image_size = args.data.image_size
             final_ds = AFHQ(root_dir=os.path.join(args.paths.afhq_path, 'train'), animal_type=animal_type, image_size=image_size)
+
+        if dataset_transfer_tag == DATASET_CUSTOM:
+            final_ds = ImageFolderDataset(
+                folder=args.paths.final_data_path,
+                image_size=args.data.image_size,
+            )
 
         if dataset_transfer_tag == DATASET_DOWNSCALER_LOW:
             root = os.path.join(data_dir, 'downscaler')
