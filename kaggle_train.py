@@ -1,29 +1,14 @@
 # ============================================================
-# DSBM Cat→Dog Image Translation  —  Kaggle Notebook
+# DSBM Unpaired Image Translation  —  Kaggle Notebook
 # ============================================================
-# Paste each section into a separate Kaggle notebook cell.
+# Paste each CELL block into a separate Kaggle notebook cell.
 #
-# One-time setup before first run:
-#   1. Create a new Kaggle Notebook
-#   2. Settings → Accelerator → GPU T4 x1
-#   3. Add dataset: search "animal faces" → add "Animal Faces HQ (AFHQ)"
-#      by andrewmvd  (slug: andrewmvd/animal-faces)
-#   4. Enable internet access: Settings → Internet → On
-#
-# To resume a previous session:
-#   5. In the previous session's notebook, click Output tab → "New Dataset"
-#      and name it "dsbm-checkpoints" — this saves /kaggle/working/ as a dataset
-#   6. In the new notebook, add that "dsbm-checkpoints" dataset
-#      The restore cell below will detect and load it automatically.
+# One-time setup:
+#   1. New Notebook → Settings → Accelerator → GPU T4 x1
+#   2. Settings → Internet → On
+#   3. Add Data → your image dataset (two domain folders)
+#   4. (Optional) Add Data → "dsbm-checkpoints" to resume a previous session
 # ============================================================
-
-GITHUB_REPO = "https://github.com/smilingsmilee/dsbm.git"
-
-# Checkpoints are always written to this fixed path so they are easy to find
-# across sessions.
-RUN_DIR   = "/kaggle/working/dsbm_run"
-CKPT_DIR  = f"{RUN_DIR}/checkpoints"
-CKPT_ZIP  = "/kaggle/working/dsbm_checkpoints.zip"   # saved at end of each session
 
 
 # ── CELL 1: Install dependencies ──────────────────────────────────────────────
@@ -39,27 +24,34 @@ subprocess.run([
 print("Dependencies installed.")
 
 
-# ── CELL 2: Clone codebase from GitHub ────────────────────────────────────────
-import os, shutil
+# ── CELL 2: Clone codebase and verify dataset ─────────────────────────────────
+import os, shutil, glob as _glob
 
-CLONE_DST = "/kaggle/working/dsbm"
+GITHUB_REPO = "https://github.com/smilingsmilee/dsbm.git"
+CLONE_DST   = "/kaggle/working/dsbm"
+RUN_DIR     = "/kaggle/working/dsbm_run"
+CKPT_DIR    = f"{RUN_DIR}/checkpoints"
+CKPT_ZIP    = "/kaggle/working/dsbm_checkpoints.zip"
+
+# ── Set your two domain folders here ──────────────────────────────────────────
+DOMAIN_A = "/kaggle/input/YOUR_DATASET/domain_a"   # ← change this
+DOMAIN_B = "/kaggle/input/YOUR_DATASET/domain_b"   # ← change this
+# ──────────────────────────────────────────────────────────────────────────────
 
 if os.path.exists(CLONE_DST):
     shutil.rmtree(CLONE_DST)
-
 ret = os.system(f"git clone {GITHUB_REPO} {CLONE_DST}")
-assert ret == 0, "git clone failed — check the repo URL and internet access."
+assert ret == 0, "git clone failed — check internet access is enabled."
 
 os.chdir(CLONE_DST)
 print("Working directory:", os.getcwd())
 
-# Sanity-check AFHQ dataset
-import glob as _glob
-cats = _glob.glob("/kaggle/input/animal-faces/afhq/train/cat/*")
-dogs = _glob.glob("/kaggle/input/animal-faces/afhq/train/dog/*")
-print(f"Cat images: {len(cats)},  Dog images: {len(dogs)}")
-assert len(cats) > 0 and len(dogs) > 0, \
-    "AFHQ dataset not found. Add 'andrewmvd/animal-faces' to this notebook."
+a_imgs = _glob.glob(f"{DOMAIN_A}/*")
+b_imgs = _glob.glob(f"{DOMAIN_B}/*")
+print(f"Domain A: {len(a_imgs)} images  ({DOMAIN_A})")
+print(f"Domain B: {len(b_imgs)} images  ({DOMAIN_B})")
+assert len(a_imgs) > 0, f"No images found in DOMAIN_A: {DOMAIN_A}"
+assert len(b_imgs) > 0, f"No images found in DOMAIN_B: {DOMAIN_B}"
 
 
 # ── CELL 3: Verify GPU ────────────────────────────────────────────────────────
@@ -74,36 +66,30 @@ import glob as _glob, shutil, os
 
 os.makedirs(CKPT_DIR, exist_ok=True)
 
-# Look for a checkpoint zip saved by a previous session and added as a dataset
 prev_zips = _glob.glob("/kaggle/input/*/dsbm_checkpoints.zip")
-
 if prev_zips:
     src_zip = prev_zips[0]
     print(f"Found previous checkpoints: {src_zip}")
     shutil.unpack_archive(src_zip, CKPT_DIR)
-    ckpts = os.listdir(CKPT_DIR)
-    print(f"Restored {len(ckpts)} checkpoint files.")
+    print(f"Restored {len(os.listdir(CKPT_DIR))} checkpoint files.")
 else:
     print("No previous checkpoints found — starting from scratch.")
 
 
 # ── CELL 5: Train ─────────────────────────────────────────────────────────────
-# hydra.run.dir pins the output to a fixed path so find_last_ckpt() can
-# always locate the most recent valid checkpoint on resume.
-#
-# The trainer automatically detects any checkpoints in CKPT_DIR and resumes
-# from the latest consistent (forward, backward) pair — no manual flags needed.
-#
+# Resumes automatically if checkpoints exist in CKPT_DIR.
 # To switch to DSBM-IMF add:  first_coupling=ind first_num_iter=10000
 # To train longer add:        n_ipf=20 num_iter=10000
 
+import os
 cmd = (
     f"python main.py "
-    f"dataset=afhq_cat2dog "
+    f"dataset=custom_transfer "
     f"LOGGER=CSV "
     f"method=dbdsb "
     f"model=UNET "
-    f"++paths.afhq_path=/kaggle/input/animal-faces/afhq "
+    f"++paths.init_data_path={DOMAIN_A} "
+    f"++paths.final_data_path={DOMAIN_B} "
     f"'hydra.run.dir={RUN_DIR}'"
 )
 print("Running:", cmd)
@@ -111,35 +97,29 @@ os.system(cmd)
 
 
 # ── CELL 6: Save checkpoints for the next session ─────────────────────────────
-# This zips only the checkpoint files (not images or cache) and writes the zip
-# to /kaggle/working/ so it appears in the Output tab.
-#
 # After this cell runs:
-#   1. Click the Output tab in this notebook
-#   2. Click "New Dataset" and name it "dsbm-checkpoints"
-#   3. In your next session, add that dataset — Cell 4 will auto-restore it.
+#   1. Output tab → "New Dataset" → name it "dsbm-checkpoints"
+#   2. In your next session, add that dataset — Cell 4 restores it automatically.
 
 import glob as _glob, zipfile, os
 
 ckpt_files = _glob.glob(f"{CKPT_DIR}/*.ckpt")
-print(f"Saving {len(ckpt_files)} checkpoint files to {CKPT_ZIP} ...")
+print(f"Saving {len(ckpt_files)} checkpoint files ...")
 
 with zipfile.ZipFile(CKPT_ZIP, "w", compression=zipfile.ZIP_DEFLATED) as zf:
     for f in ckpt_files:
         zf.write(f, os.path.basename(f))
 
-size_mb = os.path.getsize(CKPT_ZIP) / 1e6
-print(f"Saved {CKPT_ZIP}  ({size_mb:.0f} MB)")
-print("Now go to the Output tab → 'New Dataset' → name it 'dsbm-checkpoints'.")
+print(f"Saved {CKPT_ZIP}  ({os.path.getsize(CKPT_ZIP) / 1e6:.0f} MB)")
+print("→ Output tab → 'New Dataset' → name it 'dsbm-checkpoints'")
 
 
-# ── CELL 7: Inspect sample outputs ────────────────────────────────────────────
+# ── CELL 7: View sample outputs ───────────────────────────────────────────────
 import glob as _glob
 from PIL import Image as PILImage
 
 images = sorted(_glob.glob(f"{RUN_DIR}/im/**/*.png", recursive=True))
 print(f"{len(images)} sample images generated.")
-
 if images:
     print("Latest:", images[-1])
     display(PILImage.open(images[-1]))
