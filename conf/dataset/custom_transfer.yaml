@@ -47,9 +47,9 @@ log_stride: 100
 gif_stride: 500
 plot_npar: 4
 test_npar: 50
-test_batch_size: 4
+test_batch_size: 2
 cache_npar: 200
-cache_batch_size: 8
+cache_batch_size: 4
 num_repeat_data: 1
 cache_refresh_stride: 500
 
@@ -59,7 +59,7 @@ ema: True
 ema_rate: 0.999
 grad_clipping: True
 grad_clip: 1.0
-batch_size: 4
+batch_size: 2
 num_iter: 5000
 n_ipf: 10
 lr: 0.0001
