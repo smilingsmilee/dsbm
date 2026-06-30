@@ -67,7 +67,7 @@ import glob as _glob, shutil, os
 
 os.makedirs(CKPT_DIR, exist_ok=True)
 
-prev_zips = _glob.glob("/kaggle/input/*/dsbm_checkpoints.zip")
+prev_zips = _glob.glob("/kaggle/input/**/dsbm_checkpoints.zip", recursive=True)
 if prev_zips:
     src_zip = prev_zips[0]
     print(f"Found previous checkpoints: {src_zip}")
