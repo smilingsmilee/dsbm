@@ -105,14 +105,30 @@ os.system(cmd)
 
 import glob as _glob, zipfile, os
 
-ckpt_files = _glob.glob(f"{CKPT_DIR}/*.ckpt")
-print(f"Saving {len(ckpt_files)} checkpoint files ...")
+_PREFIXES = ["net_b", "sample_net_b", "optimizer_b", "net_f", "sample_net_f", "optimizer_f"]
 
+# For each prefix, find the latest checkpoint file (by filename sort = chronological)
+_latest = {}
+for _p in _PREFIXES:
+    _matches = sorted(_glob.glob(f"{CKPT_DIR}/{_p}_*.ckpt"))
+    if _matches:
+        _latest[_p] = _matches[-1]
+
+# Only include a direction if all three files of that direction exist
+_b = [_latest.get(p) for p in ["net_b", "sample_net_b", "optimizer_b"]]
+_f = [_latest.get(p) for p in ["net_f", "sample_net_f", "optimizer_f"]]
+
+files_to_zip = [f for f in _b if f is not None]
+if all(f is not None for f in _f):
+    files_to_zip.extend(_f)
+
+print(f"Saving {len(files_to_zip)} checkpoint files (latest set only) ...")
 with zipfile.ZipFile(CKPT_ZIP, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-    for f in ckpt_files:
+    for f in files_to_zip:
         zf.write(f, os.path.basename(f))
 
-print(f"Saved {CKPT_ZIP}  ({os.path.getsize(CKPT_ZIP) / 1e6:.0f} MB)")
+size_mb = os.path.getsize(CKPT_ZIP) / 1e6
+print(f"Saved {CKPT_ZIP}  ({size_mb:.0f} MB)")
 print("→ Output tab → 'New Dataset' → name it 'dsbm-checkpoints'")
 
 
