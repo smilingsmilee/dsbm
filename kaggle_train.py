@@ -67,13 +67,28 @@ import glob as _glob, shutil, os
 
 os.makedirs(CKPT_DIR, exist_ok=True)
 
-prev_zips = _glob.glob("/kaggle/input/**/dsbm_checkpoints.zip", recursive=True)
-if prev_zips:
-    src_zip = prev_zips[0]
-    print(f"Found previous checkpoints: {src_zip}")
-    shutil.unpack_archive(src_zip, CKPT_DIR)
-    print(f"Restored {len(os.listdir(CKPT_DIR))} checkpoint files.")
-else:
+restored = False
+
+# Kaggle auto-unzips .zip files when a dataset is created from notebook output,
+# so the checkpoints appear as a folder named "dsbm_checkpoints" rather than a zip.
+ckpt_folders = _glob.glob("/kaggle/input/**/dsbm_checkpoints", recursive=True)
+if ckpt_folders:
+    src = ckpt_folders[0]
+    files = _glob.glob(f"{src}/*.ckpt")
+    for f in files:
+        shutil.copy(f, CKPT_DIR)
+    print(f"Restored {len(files)} checkpoint files from {src}.")
+    restored = True
+
+# Fallback: zip was not auto-extracted
+if not restored:
+    prev_zips = _glob.glob("/kaggle/input/**/dsbm_checkpoints.zip", recursive=True)
+    if prev_zips:
+        shutil.unpack_archive(prev_zips[0], CKPT_DIR)
+        print(f"Restored {len(os.listdir(CKPT_DIR))} checkpoint files from zip.")
+        restored = True
+
+if not restored:
     print("No previous checkpoints found — starting from scratch.")
 
 
