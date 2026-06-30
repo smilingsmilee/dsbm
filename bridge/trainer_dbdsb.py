@@ -506,10 +506,10 @@ class IPF_DBDSB:
                 name_net_ckpt = os.path.join(self.ckpt_dir, name_net)
                 torch.save(sample_net.state_dict(), name_net_ckpt)
             
-            # for ckpt_prefix in self.ckpt_prefixes:
-            #     existing_ckpts = sorted(glob.glob(os.path.join(self.ckpt_dir, f"{ckpt_prefix}_**.ckpt")))
-            #     for ckpt_i in range(max(len(existing_ckpts)-5, 0)):
-            #         os.remove(existing_ckpts[ckpt_i])
+            for ckpt_prefix in self.ckpt_prefixes:
+                existing_ckpts = sorted(glob.glob(os.path.join(self.ckpt_dir, f"{ckpt_prefix}_**.ckpt")))
+                for ckpt_i in range(max(len(existing_ckpts)-1, 0)):
+                    os.remove(existing_ckpts[ckpt_i])
 
     def save_current_ckpt(self):
         self.save_ckpt(self.i, self.n, self.fb)
