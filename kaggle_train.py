@@ -69,18 +69,25 @@ os.makedirs(CKPT_DIR, exist_ok=True)
 
 restored = False
 
-# Kaggle auto-unzips .zip files when a dataset is created from notebook output,
-# so the checkpoints appear as a folder named "dsbm_checkpoints" rather than a zip.
-ckpt_folders = _glob.glob("/kaggle/input/**/dsbm_checkpoints", recursive=True)
-if ckpt_folders:
-    src = ckpt_folders[0]
-    files = _glob.glob(f"{src}/*.ckpt")
-    for f in files:
+# Search all known checkpoint locations under /kaggle/input
+_search_patterns = [
+    "**/dsbm_checkpoints/*.ckpt",       # Kaggle auto-extracted zip
+    "**/dsbm_run/checkpoints/*.ckpt",   # direct output (Cell 6 didn't run)
+    "**/checkpoints/*.ckpt",            # any checkpoints folder
+]
+_ckpt_files = []
+for _pat in _search_patterns:
+    _ckpt_files = _glob.glob(f"/kaggle/input/{_pat}", recursive=True)
+    if _ckpt_files:
+        break
+
+if _ckpt_files:
+    for f in _ckpt_files:
         shutil.copy(f, CKPT_DIR)
-    print(f"Restored {len(files)} checkpoint files from {src}.")
+    print(f"Restored {len(_ckpt_files)} checkpoint files from {os.path.dirname(_ckpt_files[0])}.")
     restored = True
 
-# Fallback: zip was not auto-extracted
+# Fallback: zip file
 if not restored:
     prev_zips = _glob.glob("/kaggle/input/**/dsbm_checkpoints.zip", recursive=True)
     if prev_zips:
